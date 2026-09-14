@@ -12,11 +12,14 @@ import { CreateIssueModal } from "./CreateIssueModal";
 import { useValidateIssueProcess } from "../hooks/useIssue";
 import type { EquipmentIssueRequestDto, IssueCreate } from "../types";
 import { api } from "../hooks/apiConfig";
+import { NotificationModal } from "./NotificationModal";
+import { useNotificationStore } from "../stores/useNotificationStore";
 
 type Props = {};
 
 function Layout({}: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { notification, clearNotification, notify } = useNotificationStore();
   const { processValidation, isPending } = useValidateIssueProcess();
   const [activeTab, setActiveTab] = useState("pending"); // 'pending' | 'validated'
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,34 +60,84 @@ function Layout({}: Props) {
         error,
       );
     } finally {
+      console.log("xcv1.2");
       logout();
-      window.location.href = "https://ckarlosdev.github.io/login/";
+      // window.location.href = "https://ckarlosdev.github.io/login/";
     }
   };
+
+  // const handleCreateIssueSubmit = async (
+  //   issuePayload: IssueCreate,
+  //   equipmentId: number,
+  // ) => {
+  //   try {
+  //     // Mapeo adaptado a las propiedades exactas de EquipmentIssueRequestDto
+  //     const maintenancePayload: EquipmentIssueRequestDto = {
+  //       equipmentId: equipmentId,
+  //       reportedBy: issuePayload.reportedBy,
+  //       issueDescription: issuePayload.descriptionIssue, // Se mapea desde descriptionIssue
+  //       severity: issuePayload.priorityIssue, // Se mapea desde priorityIssue
+  //       userName: issuePayload.createdBy || issuePayload.reportedBy || "SYSTEM",
+  //       referenceID: 0,
+  //       issueType: issuePayload.typeIssue,
+  //       details: issuePayload.details,
+  //     };
+
+  //     // Procesa la transacción doble
+  //     await processValidation(issuePayload, maintenancePayload);
+
+  //     setShowCreateModal(false);
+  //   } catch (error) {
+  //     console.error(
+  //       "Error al procesar la creación e integración de mantenimiento:",
+  //       error,
+  //     );
+  //   }
+  // };
 
   const handleCreateIssueSubmit = async (
     issuePayload: IssueCreate,
     equipmentId: number,
   ) => {
     try {
-      // Mapeo adaptado a las propiedades exactas de EquipmentIssueRequestDto
       const maintenancePayload: EquipmentIssueRequestDto = {
         equipmentId: equipmentId,
         reportedBy: issuePayload.reportedBy,
-        issueDescription: issuePayload.descriptionIssue, // Se mapea desde descriptionIssue
-        severity: issuePayload.priorityIssue, // Se mapea desde priorityIssue
+        issueDescription: issuePayload.descriptionIssue,
+        severity: issuePayload.priorityIssue,
         userName: issuePayload.createdBy || issuePayload.reportedBy || "SYSTEM",
+        referenceID: 0,
+        issueType: issuePayload.typeIssue,
+        details: issuePayload.details,
       };
 
-      // Procesa la transacción doble
+      // Procesar la transacción
       await processValidation(issuePayload, maintenancePayload);
 
+      // Cerrar el modal del formulario
       setShowCreateModal(false);
+
+      // Lanzar notificación de éxito
+      notify({
+        type: "success",
+        title: "Report registered",
+        message: "The maintenance issue was created successfully.",
+      });
     } catch (error) {
       console.error(
-        "Error al procesar la creación e integración de mantenimiento:",
+        "Error processing maintenance creation and integration:",
         error,
       );
+
+      // Trigger error notification (keeps the modal open if you want to retry)
+      notify({
+        type: "error",
+        title: "Processing error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to save the report. Please check your connection and try again.",
+      });
     }
   };
 
@@ -108,7 +161,7 @@ function Layout({}: Props) {
   } = useGetIssues({
     page,
     size: pageSize,
-    sortBy: "equipment.number",
+    sortBy: "reportedDate",
     direction: "DESC",
     searchTerm: debouncedSearchTerm, // <-- Conectado
     priorityFilter, // <-- Conectado
@@ -157,9 +210,14 @@ function Layout({}: Props) {
           <div className="row align-items-center">
             {/* LADO IZQUIERDO: Botón Back + Título */}
             <div className="col-4 d-flex align-items-center gap-2">
-              <button className="btn btn-light btn-sm border d-inline-flex align-items-center gap-2 fw-semibold text-secondary px-3">
+              <button
+                className="btn btn-light btn-sm border d-inline-flex align-items-center gap-2 fw-semibold text-secondary px-3"
+                onClick={() => {
+                  window.location.href = `https://ckarlosdev.github.io/HMBrandt/`;
+                }}
+              >
                 <MdKeyboardArrowLeft />
-                <span>Back</span>
+                <span>Home</span>
               </button>
               <div className="vr mx-2 text-muted opacity-25"></div>
               <h5 className="mb-0 fw-bold text-dark">Issues Reports</h5>
@@ -409,6 +467,13 @@ function Layout({}: Props) {
         onSubmit={handleCreateIssueSubmit}
         isLoading={isPending}
       />
+
+      {notification && (
+        <NotificationModal
+          notification={notification}
+          onClose={clearNotification}
+        />
+      )}
     </>
   );
 }

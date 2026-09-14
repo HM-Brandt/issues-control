@@ -90,9 +90,7 @@ function PendingReportsTable({
                       {item.descriptionIssue}
                     </td>
                     <td className="small text-muted">
-                      {item.createdAt
-                        ? formatUTCTime(item.createdAt)
-                        : "-"}
+                      {item.createdAt ? formatUTCTime(item.createdAt) : "-"}
                     </td>
                     <td className="text-end">
                       <button

@@ -38,7 +38,7 @@ function useGetIssues(params: UseGetIssuesParams = {}) {
     flow,
     page = 0,
     size = 10,
-    sortBy = "equipment.number",
+    sortBy = "reportedDate",
     direction = "DESC",
     searchTerm = "",
     priorityFilter = "ALL",

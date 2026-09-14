@@ -104,6 +104,9 @@ export type EquipmentIssueRequestDto = {
   issueDescription: string;
   severity: string;
   userName: string;
+  referenceID: number;
+  issueType: string;
+  details: string;
 };
 
 export type CreateIssuePayload = {

@@ -3,7 +3,7 @@ import type { User } from "../types";
 
 interface AuthState {
   token: string | null;
-  refreshToken?: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   user: User | null;
   login: (token: string, refreshToken: string) => void;
@@ -12,20 +12,21 @@ interface AuthState {
   clearAuth: () => void;
 }
 
-const storedToken = localStorage.getItem("auth_token");
-const storedRefreshToken = localStorage.getItem("refresh_token");
+// Leemos localStorage explícitamente en el estado inicial
+const initialToken = localStorage.getItem("auth_token");
+const initialRefreshToken = localStorage.getItem("refresh_token");
 
 export const useAuthStore = create<AuthState>((set) => ({
-  // token: storedToken,
-  // refreshToken: storedRefreshToken,
-  // isAuthenticated: !!storedToken,
+  token: initialToken,
+  refreshToken: initialRefreshToken,
+  isAuthenticated: !!initialToken,
   user: null,
 
-  token:
-    "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlcyI6WyJST0xFX0FETUlOIl0sInN1YiI6ImNyYW1pcmV6QGhtYnJhbmR0LmNvbSIsImlhdCI6MTc4OTA1NzY1OSwiZXhwIjoxNzg5MDU4NTU5fQ.Imy7iLWy1g2T4pj5wE4B_w4-QON6Ozoj4v-Y5oPLX6E",
-  refreshToken:
-    "b9741aa4-1b7b-4a82-9f8c-6bf7408f8c4e.71773b7d-bd85-41ab-a06f-2b71fac33805",
-  isAuthenticated: true,
+  // token:
+  //   "",
+  // refreshToken:
+  //   "",
+  // isAuthenticated: true,
 
   login: (token: string, refreshToken: string) => {
     localStorage.setItem("auth_token", token);
@@ -36,11 +37,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("auth-storage"); // Borramos residuos viejos
     set({
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       user: null,
-      refreshToken: null,
     });
   },
 

@@ -20,39 +20,53 @@ export function useValidateIssueProcess() {
   const queryClient = useQueryClient();
 
   const issueMutation = useMutation({ mutationFn: createIssue });
-  const maintenanceMutation = useMutation({ mutationFn: createIssueMaintenance });
+  const maintenanceMutation = useMutation({
+    mutationFn: createIssueMaintenance,
+  });
 
   const processValidation = async (
     issuePayload: IssueCreate,
-    maintenancePayload: EquipmentIssueRequestDto
+    maintenancePayload: EquipmentIssueRequestDto,
   ) => {
     let createdIssueId: number | null = null;
 
     try {
       // 1. Ejecutar primer Microservicio (Crear Issue)
       const issueResponse = await issueMutation.mutateAsync(issuePayload);
-      
-      // Asumimos que el backend retorna el objeto con su ID (ej. issueResponse.id o issueResponse.equipmentsIssuesId)
-      createdIssueId = issueResponse.equipmentsIssuesId || issueResponse.id;
 
-      // 2. Ejecutar segundo Microservicio (Mantenimiento)
-      await maintenanceMutation.mutateAsync(maintenancePayload);
+      // Asumimos que el backend retorna el objeto con su ID (ej. issueResponse.id o issueResponse.equipmentsIssuesId)
+      // createdIssueId = issueResponse.equipmentsIssuesId || issueResponse.id;
+      createdIssueId = issueResponse.equipmentsIssuesId || issueResponse.id;
+      if (createdIssueId) {
+        const payload: EquipmentIssueRequestDto = {
+          ...maintenancePayload,
+          referenceID: createdIssueId,
+        };
+
+        // 2. Ejecutar segundo Microservicio (Mantenimiento)
+        await maintenanceMutation.mutateAsync(payload);
+      }
 
       // 3. Éxito total: Refrescar la caché de React Query
       queryClient.invalidateQueries({ queryKey: ["issue"] });
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["issueReport"] });
 
       return true;
-
     } catch (error) {
       // 4. ESTRATEGIA DE COMPENSACIÓN (ROLLBACK)
       if (createdIssueId) {
         try {
-          console.warn("Fallo el segundo servicio. Deshaciendo cambios en el primer servicio...");
+          console.warn(
+            "Fallo el segundo servicio. Deshaciendo cambios en el primer servicio...",
+          );
           // await deleteIssue(createdIssueId);
         } catch (rollbackError) {
-          console.error("Error crítico: No se pudo hacer el rollback del issue creado", rollbackError);
+          console.error(
+            "Error crítico: No se pudo hacer el rollback del issue creado",
+            rollbackError,
+          );
         }
       }
 

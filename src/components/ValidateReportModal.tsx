@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import useEquipments from "../hooks/useEquipments";
 import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/useNotificationStore";
 type Props = {
   report: issueReport | null; // El reporte seleccionado para validar
   show: boolean;
@@ -19,6 +20,7 @@ export function ValidateReportModal({ report, show, onClose }: Props) {
   const { data: equipments } = useEquipments();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { user } = useAuthStore();
+  const { notify } = useNotificationStore();
 
   if (!show || !report) return null;
 
@@ -53,17 +55,32 @@ export function ValidateReportModal({ report, show, onClose }: Props) {
       reportedBy: report.reportedBy,
       issueDescription: report.descriptionIssue,
       severity: report.priorityIssue || "HIGH",
-      userName: "Current User",
+      userName: user?.email || "User not found",
+      referenceID: 0,
+      issueType: report.typeIssue,
+      details: details,
     };
 
     try {
       // Ejecuta la Saga
       await processValidation(issuePayload, maintenancePayload);
+
+      notify({
+        title: "Validation Successful",
+        message: `Issue report #${report.id} was validated and processed successfully.`,
+        type: "success",
+      });
+
       onClose(); // Cierra el modal solo si todo salió bien
     } catch (err: any) {
       setErrorMessage(
         "The process could not be completed on both services. The changes were reverted.",
       );
+      notify({
+        title: "Validation Failed",
+        message: "The process could not be completed. Changes were reverted.",
+        type: "error",
+      });
     }
   };
 

@@ -27,10 +27,12 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Interceptor de Request (Mantiene tu lógica actual)
+// Interceptor de Request
 api.interceptors.request.use(
   (config) => {
-    const { token } = useAuthStore.getState();
+    const token =
+      useAuthStore.getState().token || localStorage.getItem("auth_token");
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -39,83 +41,85 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Interceptor de Response (Corregido)
+// Interceptor de Response
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Si no hay respuesta o no es un 401, o ya se intentó reintentar esta request, fallamos de inmediato
+    // 1. Evitar interceptar peticiones que no tengan respuesta o no sean 401
+    // Y evitar interceptar la propia petición de refresh token si falla
     if (
       !error.response ||
       error.response.status !== 401 ||
-      originalRequest._retry
+      originalRequest._retry ||
+      originalRequest.url?.includes("/api/auth/refresh")
     ) {
       return Promise.reject(error);
     }
 
-    // 1. CASO: Ya se está refrescando el token. Encolamos esta petición.
+    // 2. Si ya hay un refresh en curso, encolar las peticiones concurrentes
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       })
         .then((token) => {
-          // CORRECCIÓN 1: Marcar como _retry también a las peticiones en cola para evitar bucles
           originalRequest._retry = true;
-
-          // CORRECCIÓN 2: Asegurar la asignación limpia de headers
-          originalRequest.headers = {
-            ...originalRequest.headers,
-            Authorization: `Bearer ${token}`,
-          };
-
+          originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
         })
         .catch((err) => Promise.reject(err));
     }
 
-    // 2. CASO: Es la primera petición que falla. Iniciamos el proceso de refresh.
     originalRequest._retry = true;
     isRefreshing = true;
 
-    const { refreshToken, login, logout } = useAuthStore.getState();
+    const refreshToken =
+      useAuthStore.getState().refreshToken ||
+      localStorage.getItem("refresh_token");
 
+    const { login, logout } = useAuthStore.getState();
+
+    // Si no existe refresh token localmente, cerrar sesión inmediatamente
     if (!refreshToken) {
+      isRefreshing = false;
       logout();
-      window.location.href = "https://ckarlosdev.github.io/login/";
       return Promise.reject(error);
     }
 
     try {
-      // Usamos una instancia limpia de axios (no 'api') para evitar que pase por estos mismos interceptores
+      // Petición aislada (usando una instancia limpia de axios, no "api")
       const res = await axios.post(
         "https://api-gateway-px44.onrender.com/api/auth/refresh",
-        { refreshToken },
+        { refreshToken }, // Asegúrate de que tu backend espera el JSON { refreshToken: "..." }
       );
 
-      const { token: newToken, refreshToken: newRefresh } = res.data;
+      // 3. Normalizar la respuesta por si el backend usa nombres de llaves distintos
+      const data = res.data;
+      const newToken =
+        data.token || data.accessToken || data.access_token || data.jwt;
+      const newRefresh =
+        data.refreshToken || data.refresh_token || refreshToken;
 
-      // Actualizamos Zustand
+      if (!newToken) {
+        throw new Error("El backend no retornó un nuevo accesstoken válido.");
+      }
+
+      // Actualizar Zustand / localStorage
       login(newToken, newRefresh);
 
-      // Despachamos todas las peticiones que se acumularon en la cola mientras esperaban
+      // Procesar peticiones en cola acumuladas durante el refresh
       processQueue(null, newToken);
 
-      // Reintentamos la petición original que inició todo el flujo
-      originalRequest.headers = {
-        ...originalRequest.headers,
-        Authorization: `Bearer ${newToken}`,
-      };
-
+      // Actualizar el header de la petición fallida original y reintentar
+      originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return api(originalRequest);
-    } catch (refreshError) {
-      // Si el refresh falla (ej. el refresh token expiró), limpiamos todo, deslogueamos y rechazamos la cola
+    } catch (refreshError: any) {
+      // 4. Si la renovación falla, rechazar las peticiones en cola y desloguear
       processQueue(refreshError, null);
       logout();
-      window.location.href = "https://ckarlosdev.github.io/login/";
       return Promise.reject(refreshError);
     } finally {
-      // Importante: Volvemos a habilitar el flag para futuros vencimientos de token
       isRefreshing = false;
     }
   },

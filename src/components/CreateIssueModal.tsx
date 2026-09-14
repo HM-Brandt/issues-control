@@ -3,6 +3,7 @@ import type { IssueCreate } from "../types";
 import useEmployees from "../hooks/useEmployees";
 import useEquipments from "../hooks/useEquipments";
 import { useAuthStore } from "../stores/authStore";
+import useUser from "../hooks/useUser";
 
 interface CreateIssueModalProps {
   show: boolean;
@@ -25,15 +26,31 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   const { data: equipments = [], isLoading: isLoadingEquipments } =
     useEquipments();
 
+  const filteredEmployees = employees?.filter(
+    (emp) =>
+      emp.status === "Active" &&
+      emp.employeesId != 51 &&
+      (emp.title === "Labor" || emp.title === "Supervisor"),
+  );
+
+  const sortedEmployees = filteredEmployees?.sort((a, b) =>
+    a.firstName.localeCompare(b.firstName),
+  );
+
+  const orderedEquipments = [...equipments].sort((a, b) =>
+    a.number.localeCompare(b.number, undefined, { numeric: true }),
+  );
+
   // Estados del formulario
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | "">(
     "",
   );
-  const [priorityIssue, setPriorityIssue] = useState("MEDIUM");
-  const [typeIssue, setTypeIssue] = useState("Blown Hose");
+  const [priorityIssue, setPriorityIssue] = useState("Low");
+  const [typeIssue, setTypeIssue] = useState("");
   const [reportedBy, setReportedBy] = useState("");
   const [descriptionIssue, setDescriptionIssue] = useState("");
   const [details, setDetails] = useState("");
+  const { isLoading: loadignUser } = useUser();
   const { user } = useAuthStore();
 
   if (!show) return null;
@@ -122,64 +139,18 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                           ? "Loading equipments..."
                           : "Select Equipment"}
                       </option>
-                      {equipments.map((eq: any) => (
-                        <option
-                          key={eq.id || eq.equipmentsId}
-                          value={eq.id || eq.equipmentsId}
-                        >
-                          {eq.equipmentNumber || eq.number}{" "}
-                          {eq.name ? `- ${eq.name}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Priority */}
-                  <div className="col-md-6">
-                    <label className="form-label fw-semibold text-secondary small">
-                      Priority <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      className="form-select"
-                      value={priorityIssue}
-                      onChange={(e) => setPriorityIssue(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    >
-                      <option value="HIGH">High</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="LOW">Low</option>
-                    </select>
-                  </div>
-
-                  {/* Issue Type */}
-                  <div className="col-md-6">
-                    <label className="form-label fw-semibold text-secondary small">
-                      Issue Type <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      className="form-select"
-                      value={typeIssue}
-                      onChange={(e) => setTypeIssue(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    >
-                      <option value="Blown Hose">
-                        Blown Hose/Hydraulic Leak
-                      </option>
-                      <option value="Oil Leak">Oil Leak</option>
-                      <option value="Other Fluid Leak">Other Fluid Leak</option>
-                      <option value="Overheating">Overheating</option>
-                      <option value="Won't start">Won't start</option>
-                      <option value="Physical damage">Physical damage</option>
-                      <option value="Won't track/move">Won't track/move</option>
-                      <option value="Low Power">Low Power</option>
-                      <option value="Control/electrical issue">
-                        Control/electrical issue
-                      </option>
-                      <option value="Smoke/smell">Smoke/smell</option>
-                      <option value="Weird Sounds">Weird Sounds</option>
-                      <option value="Other">Other</option>
+                      {orderedEquipments.map((eq: any, index: number) => {
+                        const equipmentId = eq.equipmentsId ?? eq.id ?? index;
+                        return (
+                          <option
+                            key={`equipment-${equipmentId}`}
+                            value={eq.id ?? eq.equipmentsId}
+                          >
+                            {eq.equipmentNumber || eq.number}{" "}
+                            {eq.name ? `- ${eq.name}` : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -199,7 +170,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                           ? "Loading employees..."
                           : "Select Employee"}
                       </option>
-                      {employees.map((emp: any) => {
+                      {sortedEmployees.map((emp: any) => {
                         const name =
                           emp.fullName || `${emp.firstName} ${emp.lastName}`;
                         return (
@@ -208,6 +179,56 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                           </option>
                         );
                       })}
+                    </select>
+                  </div>
+
+                  {/* Priority */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-secondary small">
+                      Priority <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      className="form-select"
+                      value={priorityIssue}
+                      onChange={(e) => setPriorityIssue(e.target.value)}
+                      required
+                      disabled={isLoading}
+                    >
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                    </select>
+                  </div>
+
+                  {/* Issue Type */}
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold text-secondary small">
+                      Issue Type <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      className="form-select"
+                      value={typeIssue}
+                      onChange={(e) => setTypeIssue(e.target.value)}
+                      required
+                      disabled={isLoading}
+                    >
+                      <option value="">Select type</option>
+                      <option value="Blown Hose">
+                        Blown Hose/Hydraulic Leak
+                      </option>
+                      <option value="Oil Leak">Oil Leak</option>
+                      <option value="Other Fluid Leak">Other Fluid Leak</option>
+                      <option value="Overheating">Overheating</option>
+                      <option value="Won't start">Won't start</option>
+                      <option value="Physical damage">Physical damage</option>
+                      <option value="Won't track/move">Won't track/move</option>
+                      <option value="Low Power">Low Power</option>
+                      <option value="Control/electrical issue">
+                        Control/electrical issue
+                      </option>
+                      <option value="Smoke/smell">Smoke/smell</option>
+                      <option value="Weird Sounds">Weird Sounds</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
 
@@ -251,21 +272,21 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
                   type="button"
                   className="btn btn-outline-secondary"
                   onClick={onClose}
-                  disabled={isLoading}
+                  disabled={isLoading || loadignUser}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary px-4 fw-semibold"
-                  disabled={isLoading}
+                  disabled={isLoading || loadignUser}
                 >
-                  {isLoading ? (
+                  {(isLoading || loadignUser) && (
                     <span
                       className="spinner-border spinner-border-sm me-2"
                       role="status"
                     />
-                  ) : null}
+                  )}
                   Create Issue
                 </button>
               </div>
