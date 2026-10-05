@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useValidateIssueProcess } from "../hooks/useIssue";
 import type {
+  EquipmentDataDto,
+  EquipmentIssueCreateDto,
   EquipmentIssueRequestDto,
   IssueCreate,
   issueReport,
@@ -32,6 +34,10 @@ export function ValidateReportModal({ report, show, onClose }: Props) {
     e.preventDefault();
     setErrorMessage(null);
 
+    if (!equipmentSelected) {
+      throw new Error(`equipment no found`);
+    }
+
     // Payload 1: Primer Microservicio
     const issuePayload: IssueCreate = {
       issueReportId: report.id,
@@ -50,7 +56,7 @@ export function ValidateReportModal({ report, show, onClose }: Props) {
     };
 
     // Payload 2: Segundo Microservicio (Mantenimiento)
-    const maintenancePayload: EquipmentIssueRequestDto = {
+    const issueDataPayload: EquipmentIssueRequestDto = {
       equipmentId: report.equipmentId,
       reportedBy: report.reportedBy,
       issueDescription: report.descriptionIssue,
@@ -59,6 +65,17 @@ export function ValidateReportModal({ report, show, onClose }: Props) {
       referenceID: 0,
       issueType: report.typeIssue,
       details: details,
+    };
+
+    const equipmentPayload: EquipmentDataDto = {
+      number: equipmentSelected.number,
+      type: "Equipment",
+      name: equipmentSelected.name,
+    };
+
+    const maintenancePayload: EquipmentIssueCreateDto = {
+      issueData: issueDataPayload,
+      equipmentData: equipmentPayload,
     };
 
     try {

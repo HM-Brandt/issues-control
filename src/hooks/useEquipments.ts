@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./apiConfig";
 import type { Equipment } from "../types";
 
-const queryEquipments = (): Promise<Equipment[]> => {
-  return api.get("v1/equipments").then((response) => response.data);
+const queryEquipments = async (): Promise<Equipment[]> => {
+  const response = await api.get<Equipment[]>("v1/equipments");
+  return response.data;
 };
 
 function useEquipments() {

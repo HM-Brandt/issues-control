@@ -1,5 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { EquipmentIssueRequestDto, IssueCreate } from "../types";
+import type {
+  EquipmentIssueCreateDto,
+  IssueCreate,
+} from "../types";
 import { api } from "./apiConfig";
 
 const createIssue = async (issueData: IssueCreate) => {
@@ -7,11 +10,7 @@ const createIssue = async (issueData: IssueCreate) => {
   return data; // Asegúrate de que el backend retorne el objeto creado con su 'id'
 };
 
-// const deleteIssue = async (issueId: number) => {
-//   return await api.delete(`v1/issue/${issueId}`);
-// };
-
-const createIssueMaintenance = async (payload: EquipmentIssueRequestDto) => {
+const createIssueMaintenance = async (payload: EquipmentIssueCreateDto) => {
   const { data } = await api.post("/v2/maintenance/issue", payload);
   return data;
 };
@@ -26,7 +25,7 @@ export function useValidateIssueProcess() {
 
   const processValidation = async (
     issuePayload: IssueCreate,
-    maintenancePayload: EquipmentIssueRequestDto,
+    maintenancePayload: EquipmentIssueCreateDto,
   ) => {
     let createdIssueId: number | null = null;
 
@@ -38,9 +37,12 @@ export function useValidateIssueProcess() {
       // createdIssueId = issueResponse.equipmentsIssuesId || issueResponse.id;
       createdIssueId = issueResponse.equipmentsIssuesId || issueResponse.id;
       if (createdIssueId) {
-        const payload: EquipmentIssueRequestDto = {
+        const payload: EquipmentIssueCreateDto = {
           ...maintenancePayload,
-          referenceID: createdIssueId,
+          issueData: {
+            ...maintenancePayload.issueData,
+            referenceID: createdIssueId,
+          },
         };
 
         // 2. Ejecutar segundo Microservicio (Mantenimiento)
@@ -61,7 +63,6 @@ export function useValidateIssueProcess() {
           console.warn(
             "Fallo el segundo servicio. Deshaciendo cambios en el primer servicio...",
           );
-          // await deleteIssue(createdIssueId);
         } catch (rollbackError) {
           console.error(
             "Error crítico: No se pudo hacer el rollback del issue creado",

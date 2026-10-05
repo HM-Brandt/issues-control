@@ -10,10 +10,16 @@ import { useGetReports } from "../hooks/useIssueReports";
 import { useAuthStore } from "../stores/authStore";
 import { CreateIssueModal } from "./CreateIssueModal";
 import { useValidateIssueProcess } from "../hooks/useIssue";
-import type { EquipmentIssueRequestDto, IssueCreate } from "../types";
+import type {
+  EquipmentDataDto,
+  EquipmentIssueCreateDto,
+  EquipmentIssueRequestDto,
+  IssueCreate,
+} from "../types";
 import { api } from "../hooks/apiConfig";
 import { NotificationModal } from "./NotificationModal";
 import { useNotificationStore } from "../stores/useNotificationStore";
+import useEquipments from "../hooks/useEquipments";
 
 type Props = {};
 
@@ -21,6 +27,7 @@ function Layout({}: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { notification, clearNotification, notify } = useNotificationStore();
   const { processValidation, isPending } = useValidateIssueProcess();
+  const { data: equipments = [] } = useEquipments();
   const [activeTab, setActiveTab] = useState("pending"); // 'pending' | 'validated'
   const [searchTerm, setSearchTerm] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
@@ -66,49 +73,39 @@ function Layout({}: Props) {
     }
   };
 
-  // const handleCreateIssueSubmit = async (
-  //   issuePayload: IssueCreate,
-  //   equipmentId: number,
-  // ) => {
-  //   try {
-  //     // Mapeo adaptado a las propiedades exactas de EquipmentIssueRequestDto
-  //     const maintenancePayload: EquipmentIssueRequestDto = {
-  //       equipmentId: equipmentId,
-  //       reportedBy: issuePayload.reportedBy,
-  //       issueDescription: issuePayload.descriptionIssue, // Se mapea desde descriptionIssue
-  //       severity: issuePayload.priorityIssue, // Se mapea desde priorityIssue
-  //       userName: issuePayload.createdBy || issuePayload.reportedBy || "SYSTEM",
-  //       referenceID: 0,
-  //       issueType: issuePayload.typeIssue,
-  //       details: issuePayload.details,
-  //     };
-
-  //     // Procesa la transacción doble
-  //     await processValidation(issuePayload, maintenancePayload);
-
-  //     setShowCreateModal(false);
-  //   } catch (error) {
-  //     console.error(
-  //       "Error al procesar la creación e integración de mantenimiento:",
-  //       error,
-  //     );
-  //   }
-  // };
-
   const handleCreateIssueSubmit = async (
     issuePayload: IssueCreate,
     equipmentId: number,
   ) => {
     try {
-      const maintenancePayload: EquipmentIssueRequestDto = {
+      const equipmentSelected = equipments?.find(
+        (equip) => equip.equipmentsId === equipmentId,
+      );
+
+      if (!equipmentSelected) {
+        throw new Error(`equipment no found with ID: ${equipmentId}`);
+      }
+
+      const issueDataPayload: EquipmentIssueRequestDto = {
         equipmentId: equipmentId,
         reportedBy: issuePayload.reportedBy,
         issueDescription: issuePayload.descriptionIssue,
         severity: issuePayload.priorityIssue,
-        userName: issuePayload.createdBy || issuePayload.reportedBy || "SYSTEM",
+        userName: issuePayload.createdBy ?? issuePayload.reportedBy ?? "SYSTEM",
         referenceID: 0,
         issueType: issuePayload.typeIssue,
         details: issuePayload.details,
+      };
+
+      const equipmentPayload: EquipmentDataDto = {
+        number: equipmentSelected.number,
+        type: "Equipment",
+        name: equipmentSelected.name,
+      };
+
+      const maintenancePayload: EquipmentIssueCreateDto = {
+        issueData: issueDataPayload,
+        equipmentData: equipmentPayload,
       };
 
       // Procesar la transacción
