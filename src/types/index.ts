@@ -117,3 +117,14 @@ export type CreateIssuePayload = {
   details?: string;
   reportedBy?: string;
 };
+
+export type EquipmentIssueCreateDto = {
+  issueData: EquipmentIssueRequestDto;
+  equipmentData: EquipmentDataDto;
+};
+
+export type EquipmentDataDto = {
+  number: string;
+  type: string;
+  name: string;
+};
